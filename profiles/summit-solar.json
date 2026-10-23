@@ -1,0 +1,82 @@
+{
+  "id": "summit-solar",
+  "company_name": "Summit Solar",
+  "agent_name": "Leo",
+  "industry": "residential solar installer",
+  "timezone": "America/Denver",
+  "phone_numbers": ["+15550200001"],
+  "greeting": "Hi, you've reached Summit Solar. I'm Leo, the company's AI assistant. Are you calling about solar for your home?",
+  "persona": "Friendly, upbeat and straightforward. Never pressure people; it is fine for them to say no.",
+  "inbound_goal": "Answer questions about going solar, qualify interested homeowners, and book a free home assessment.",
+  "hours_override": "auto",
+  "business_hours": {
+    "mon": ["08:00", "19:00"],
+    "tue": ["08:00", "19:00"],
+    "wed": ["08:00", "19:00"],
+    "thu": ["08:00", "19:00"],
+    "fri": ["08:00", "19:00"],
+    "sat": ["10:00", "16:00"]
+  },
+  "services": [
+    "Free home solar assessment (about 30 minutes, at the home or by video)",
+    "Rooftop solar panel installation",
+    "Home battery storage",
+    "Help with available incentives (a specialist explains eligibility)"
+  ],
+  "faq": {
+    "Cost": "Every home is different; the free assessment gives an exact quote. Never quote prices or savings.",
+    "Savings": "Savings depend on usage, roof and local rates. Never promise a savings amount or that bills will drop to zero.",
+    "Service area": "Colorado Front Range: Denver, Boulder, Fort Collins and Colorado Springs areas.",
+    "Renters": "Installation needs the homeowner's approval; renters can ask their landlord to contact us.",
+    "Installation time": "Usually one to two days on site after permits are approved."
+  },
+  "lead_fields": ["name", "email", "address", "zip_code", "homeowner", "monthly_bill", "roof_shade", "timeframe"],
+  "escalation_triggers": [
+    "the caller asks for a person or a sales specialist (transfer to solar_specialist)",
+    "an existing customer with a system problem (transfer to service_team)",
+    "a complaint"
+  ],
+  "emergency_instructions": "If someone reports sparks, burning smells or fire from a solar system, tell them to stay away from it and call 911 now.",
+  "transfer_targets": {
+    "solar_specialist": {"name": "Solar specialist", "phone": "+15550200002", "business_hours_only": true},
+    "service_team": {"name": "Service team", "phone": "+15550200003", "business_hours_only": true}
+  },
+  "qualification": {
+    "questions": [
+      {"id": "homeowner", "question": "Do you own the home?", "type": "yes_no"},
+      {"id": "monthly_bill", "question": "Roughly how much is your average monthly electric bill?", "type": "number"},
+      {"id": "roof_shade", "question": "How much shade does your roof get: none, partial or heavy?", "type": "choice", "choices": ["none", "partial", "heavy"]},
+      {"id": "timeframe", "question": "When would you ideally like to go solar: within three months, within a year, or just researching?", "type": "choice", "choices": ["within three months", "within a year", "just researching"]}
+    ],
+    "rules": [
+      {"field": "homeowner", "op": "eq", "value": true, "reason": "not the homeowner"},
+      {"field": "monthly_bill", "op": "gte", "value": 100, "reason": "monthly bill under $100"},
+      {"field": "roof_shade", "op": "not_in", "value": ["heavy"], "reason": "heavily shaded roof"}
+    ],
+    "on_qualified": "book"
+  },
+  "calendar": {
+    "provider": "local",
+    "appointment_type": "Free home solar assessment",
+    "duration_minutes": 30,
+    "days_ahead": 7,
+    "booking_link": "",
+    "event_type_id": null,
+    "api_key_env": "SOLAR_CALCOM_API_KEY"
+  },
+  "crm": {
+    "provider": "webhook",
+    "webhook_url": "/mock-crm/webhook",
+    "secret_env": "SOLAR_WEBHOOK_SECRET"
+  },
+  "outbound": {
+    "enabled": true,
+    "opening_line": "Hi {first_name}, this is {agent_name}, an AI assistant calling from {company_name}. You asked about solar for your home on our website, so I'm following up. Is now a good time for two or three quick questions?",
+    "allowed_consent": ["express_written"],
+    "calling_days": ["mon", "tue", "wed", "thu", "fri", "sat"],
+    "calling_window": ["09:00", "20:00"],
+    "max_attempts": 3,
+    "retry_after_minutes": [60, 240, 1440],
+    "caller_id": ""
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "id": "bright-smile-dental",
+  "company_name": "Bright Smile Dental",
+  "agent_name": "Ava",
+  "industry": "dental clinic",
+  "timezone": "America/New_York",
+  "phone_numbers": ["+15550100001"],
+  "greeting": "Thanks for calling Bright Smile Dental, this is Ava, the clinic's AI assistant. How can I help you today?",
+  "persona": "Warm, calm and reassuring - many callers are nervous about dental visits.",
+  "inbound_goal": "Answer questions, register new-patient enquiries, and book exam appointments.",
+  "hours_override": "auto",
+  "business_hours": {
+    "mon": ["08:00", "18:00"],
+    "tue": ["08:00", "18:00"],
+    "wed": ["08:00", "18:00"],
+    "thu": ["08:00", "18:00"],
+    "fri": ["08:00", "16:00"],
+    "sat": ["09:00", "13:00"]
+  },
+  "services": [
+    "New patient exam and cleaning",
+    "Routine check-ups and hygiene",
+    "Fillings and crowns",
+    "Teeth whitening",
+    "Invisalign consultations",
+    "Same-day emergency appointments when available"
+  ],
+  "faq": {
+    "Location and parking": "123 Main Street, Springfield, with free parking behind the building.",
+    "Insurance": "We accept most major PPO plans. The front desk confirms coverage before your visit; never promise coverage.",
+    "New patient exam length": "About 45 minutes including X-rays and a cleaning.",
+    "Prices": "Prices depend on the treatment and insurance; the front desk gives estimates. Do not quote prices.",
+    "Cancellation policy": "Please give at least 24 hours notice to cancel or move an appointment."
+  },
+  "lead_fields": ["name", "email", "date_of_birth", "insurance_provider", "reason", "new_or_existing_patient"],
+  "escalation_triggers": [
+    "severe pain, swelling, bleeding that won't stop, or a knocked-out tooth (transfer to front_desk)",
+    "billing disputes or complaints (transfer to office_manager)",
+    "questions about a specific diagnosis or medication"
+  ],
+  "emergency_instructions": "If the caller has facial swelling affecting breathing or swallowing, or uncontrolled bleeding, tell them to call 911 or go to the nearest emergency room now.",
+  "transfer_targets": {
+    "front_desk": {"name": "Front desk", "phone": "+15550100002", "business_hours_only": true},
+    "office_manager": {"name": "Office manager", "phone": "+15550100003", "business_hours_only": true}
+  },
+  "qualification": {
+    "questions": [
+      {"id": "wants_checkup", "question": "Would you like to book your six-month check-up?", "type": "yes_no"}
+    ],
+    "rules": [
+      {"field": "wants_checkup", "op": "eq", "value": true, "reason": "patient declined a check-up"}
+    ],
+    "on_qualified": "book"
+  },
+  "calendar": {
+    "provider": "local",
+    "appointment_type": "New patient exam",
+    "duration_minutes": 45,
+    "days_ahead": 7,
+    "booking_link": ""
+  },
+  "crm": {
+    "provider": "webhook",
+    "webhook_url": "/mock-crm/webhook",
+    "secret_env": "DENTAL_WEBHOOK_SECRET"
+  },
+  "outbound": {
+    "enabled": true,
+    "opening_line": "Hi {first_name}, this is {agent_name}, an AI assistant calling from {company_name}. You're due for your check-up and you asked us to remind you by phone. Is now an okay time for a quick minute?",
+    "allowed_consent": ["existing_patient_reminders", "express_written"],
+    "calling_days": ["mon", "tue", "wed", "thu", "fri", "sat"],
+    "calling_window": ["09:00", "19:00"],
+    "max_attempts": 2,
+    "retry_after_minutes": [240, 1440],
+    "caller_id": ""
+  }
+}

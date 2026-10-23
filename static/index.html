@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Agent Console</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --ink: #1b1f24; --muted: #66707a; --line: #e3e6ea;
+    --accent: #0f6fde; --accent-ink: #fff; --agent: #eef4fd; --caller: #f1f2f4;
+    --ok: #18794e; --warn: #b35900; --bad: #c22f2f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1216; --panel: #171b21; --ink: #e8ebef; --muted: #98a2ad; --line: #2a3038;
+            --accent: #4c9bff; --accent-ink: #0b0e12; --agent: #1b2a3f; --caller: #22272f;
+            --ok: #4cc38a; --warn: #f0a050; --bad: #ff6b6b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+  header { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0 8px 0 0; }
+  header label { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  main { display: grid; grid-template-columns: minmax(320px, 430px) 1fr; gap: 16px; padding: 16px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  input, select, textarea { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; min-width: 0; }
+  input[type=checkbox] { padding: 0; }
+  .grow { flex: 1; }
+  textarea { width: 100%; font: 13px/1.4 ui-monospace, Consolas, monospace; min-height: 55vh; }
+  button { padding: 8px 13px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.danger { color: var(--bad); }
+  button.small { padding: 3px 9px; font-size: 13px; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.mic.live { background: var(--bad); color: #fff; border-color: var(--bad); }
+  #status { font-size: 13px; color: var(--muted); margin: 8px 0; min-height: 1.4em; }
+  #chat { height: 46vh; min-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 6px 2px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: 8px 0; }
+  .msg { padding: 8px 11px; border-radius: 10px; max-width: 88%; }
+  .msg.agent { background: var(--agent); align-self: flex-start; }
+  .msg.caller { background: var(--caller); align-self: flex-end; }
+  .msg.system { align-self: center; font-size: 12px; color: var(--muted); text-align: center; }
+  .msg s { color: var(--muted); }
+  .tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .tabs button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  .scroll { overflow-x: auto; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; border: 1px solid currentColor; white-space: nowrap; }
+  .booked, .sent, .qualified, .positive, .yes, .confirmed { color: var(--ok); }
+  .transferred, .callback_requested, .pending, .no_answer, .neutral { color: var(--warn); }
+  .opted_out, .dead, .not_qualified, .failed, .negative, .no, .blocked { color: var(--bad); }
+  details summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+  .tr { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .empty { color: var(--muted); padding: 20px 0; text-align: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; }
+  .seg button.on { background: var(--accent); color: var(--accent-ink); }
+  .hidden { display: none !important; }
+  form.inline { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Voice Agent Console</h1>
+  <label>Business <select id="profile"></select></label>
+  <label><input type="checkbox" id="fault-calendar"> Simulate calendar outage</label>
+  <label><input type="checkbox" id="fault-crm"> Simulate CRM outage</label>
+  <label>Admin token <input id="token" type="password" size="10" placeholder="if set"></label>
+</header>
+<main>
+  <section class="panel">
+    <h2>Call simulator</h2>
+    <div class="row" style="margin-bottom:8px">
+      <div class="seg"><button id="modeIn" class="on">Inbound</button><button id="modeOut">Outbound</button></div>
+    </div>
+    <div id="inboundCtl" class="row">
+      <input id="phone" class="grow" value="+15550101111" aria-label="Caller phone number">
+      <button id="callBtn" class="primary">Call the business</button>
+    </div>
+    <div id="outboundCtl" class="row hidden">
+      <select id="lead" class="grow" aria-label="Lead to call"></select>
+      <button id="dialBtn" class="primary">Dial lead</button>
+      <button id="runBtn" title="Try every lead; ineligible ones are blocked with reasons">Run campaign</button>
+    </div>
+    <div id="status">Pick a business, then start a call. Chrome/Edge: talk with the mic.</div>
+    <div id="chat"></div>
+    <div class="row">
+      <button id="micBtn" class="mic" disabled title="Speak - pressing while the agent talks interrupts it">🎤 Speak</button>
+      <input id="text" class="grow" placeholder="…or type what the caller says" disabled>
+      <button id="sendBtn" disabled>Send</button>
+      <button id="endBtn" class="danger" disabled>Hang up</button>
+    </div>
+    <div class="row" style="margin-top:8px; font-size:13px; color:var(--muted)">
+      <label><input id="voiceOn" type="checkbox" checked> Speak agent replies aloud (typing or speaking while it talks = interruption)</label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="tabs" id="tabs">
+      <button data-tab="calls" class="on">Calls</button>
+      <button data-tab="leads">Leads</button>
+      <button data-tab="bookings">Bookings</button>
+      <button data-tab="tasks">Tasks</button>
+      <button data-tab="crm">CRM webhooks</button>
+      <button data-tab="compliance">Do-not-call &amp; dial log</button>
+      <button data-tab="profile">Profile config</button>
+    </div>
+    <div id="view" class="scroll"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let callId = null, tab = "calls", data = null, busy = false, mode = "in", profiles = [];
+let speaking = null; // {text, spokenUpTo} while the agent's reply is being read aloud
+
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pill = (v, cls) => v === null || v === undefined || v === "" ? "" : `<span class="pill ${esc(cls ?? v)}">${esc(v)}</span>`;
+const when = (iso) => iso ? new Date(iso).toLocaleString([], {dateStyle: "short", timeStyle: "short"}) : "";
+const pid = () => $("profile").value;
+const headers = () => ({"Content-Type": "application/json", "X-Admin-Token": $("token").value});
+
+async function api(method, url, body) {
+  const r = await fetch(url, {method, headers: headers(), body: body ? JSON.stringify(body) : undefined});
+  const out = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof out.detail === "string" ? out.detail : JSON.stringify(out.detail || out));
+  return out;
+}
+
+try { $("token").value = localStorage.getItem("va-token") || ""; } catch (e) {}
+$("token").onchange = () => { try { localStorage.setItem("va-token", $("token").value); } catch (e) {} init(); };
+
+// ---------------- simulator ----------------
+function add(role, html) {
+  const d = document.createElement("div");
+  d.className = "msg " + role; d.innerHTML = html;
+  $("chat").appendChild(d); $("chat").scrollTop = $("chat").scrollHeight;
+  return d;
+}
+
+function speak(text) {
+  return new Promise(res => {
+    if (!$("voiceOn").checked || !window.speechSynthesis) return res();
+    const u = new SpeechSynthesisUtterance(text);
+    speaking = {text, spokenUpTo: 0};
+    u.rate = 1.05;
+    u.onboundary = (e) => { if (speaking) speaking.spokenUpTo = e.charIndex; };
+    u.onend = u.onerror = () => { speaking = null; res(); };
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  });
+}
+
+// If the agent is still talking, stop it and report what the caller actually heard.
+function bargeIn() {
+  if (!speaking) return null;
+  const heard = speaking.text.slice(0, speaking.spokenUpTo).trim();
+  speaking = null; speechSynthesis.cancel();
+  const last = [...document.querySelectorAll(".msg.agent")].pop();
+  if (last) last.innerHTML = `${esc(heard)} <s>${esc(last.textContent.slice(heard.length))}</s>`;
+  add("system", "Caller interrupted the agent");
+  return heard;
+}
+
+function setLive(on) {
+  ["micBtn", "text", "sendBtn"].forEach(id => $(id).disabled = !on || busy);
+  $("endBtn").disabled = !on;
+  ["callBtn", "dialBtn", "runBtn", "profile"].forEach(id => $(id).disabled = on);
+}
+
+async function begin(starter) {
+  $("chat").innerHTML = "";
+  try {
+    const r = await starter();
+    if (!r) return;
+    callId = r.call_id; setLive(true); add("agent", esc(r.reply));
+    $("status").textContent = "Connected. Speak or type.";
+    await speak(r.reply);
+  } catch (e) { $("status").textContent = "Error: " + e.message; }
+}
+
+$("callBtn").onclick = () => begin(async () => {
+  add("system", `Inbound call from ${esc($("phone").value)} to ${esc(pid())}…`);
+  return api("POST", "/api/sim/start", {profile_id: pid(), phone: $("phone").value});
+});
+
+$("dialBtn").onclick = () => begin(async () => {
+  const r = await api("POST", "/api/outbound/dial", {profile_id: pid(), lead_id: +$("lead").value});
+  if (!r.allowed) {
+    add("system", `<b class="blocked">Dial blocked</b> for ${esc(r.phone)}:<br>${r.reasons.map(esc).join("<br>")}`);
+    refresh(); return null;
+  }
+  add("system", `Outbound call to ${esc(r.phone)}… answered`);
+  return r;
+});
+
+$("runBtn").onclick = async () => {
+  $("chat").innerHTML = "";
+  const r = await api("POST", "/api/outbound/dial", {profile_id: pid()});
+  add("system", "<b>Campaign pass</b> (simulated - eligible calls are opened, then hung up here)");
+  for (const x of r.results) {
+    add("system", x.allowed ? `✔ ${esc(x.phone)} eligible - call ${esc(x.call_id)} started`
+                             : `<span class="blocked">✖ ${esc(x.phone)}</span>: ${x.reasons.map(esc).join("; ")}`);
+    if (x.allowed) await api("POST", "/api/sim/end", {call_id: x.call_id, status: "no-answer"});
+  }
+  refresh();
+};
+
+$("endBtn").onclick = () => endCall("Caller hung up");
+
+async function endCall(note) {
+  if (!callId) return;
+  const id = callId; callId = null; setLive(false);
+  add("system", note + " - writing summary and CRM update…");
+  $("status").textContent = "Summarising call…";
+  const r = await api("POST", "/api/sim/end", {call_id: id});
+  $("status").textContent = r.call ? `Call saved: outcome ${r.call.outcome}.` : "Call saved.";
+  refresh();
+}
+
+async function send(text) {
+  text = text.trim();
+  if (!text || !callId || busy) return;
+  const heard = bargeIn();
+  busy = true; setLive(true);
+  add("caller", esc(text)); $("text").value = "";
+  $("status").textContent = "Agent is thinking…";
+  try {
+    const r = await api("POST", "/api/sim/turn", {call_id: callId, text, interrupted_heard: heard});
+    add("agent", esc(r.reply));
+    $("status").textContent = "";
+    refresh();
+    busy = false; setLive(true);
+    if (r.action === "transfer") { await speak(r.reply); return endCall(`Transferring to ${r.transfer_to}`); }
+    if (r.action === "hangup") { await speak(r.reply); return endCall("Agent ended the call"); }
+    speak(r.reply); // not awaited, so the caller can barge in
+  } catch (e) {
+    $("status").textContent = "Error: " + e.message;
+  } finally {
+    busy = false; if (callId) setLive(true);
+  }
+}
+
+$("sendBtn").onclick = () => send($("text").value);
+$("text").onkeydown = (e) => { if (e.key === "Enter") send($("text").value); };
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SR) {
+  const rec = new SR(); rec.lang = "en-US"; rec.interimResults = false;
+  rec.onresult = (e) => send(e.results[0][0].transcript);
+  rec.onend = () => $("micBtn").classList.remove("live");
+  $("micBtn").onclick = () => { $("micBtn").classList.add("live"); rec.start(); };
+} else {
+  $("micBtn").title = "Speech recognition not supported in this browser - type instead";
+  $("micBtn").onclick = () => $("text").focus();
+}
+
+$("modeIn").onclick = () => setMode("in");
+$("modeOut").onclick = () => setMode("out");
+function setMode(m) {
+  mode = m;
+  $("modeIn").classList.toggle("on", m === "in"); $("modeOut").classList.toggle("on", m === "out");
+  $("inboundCtl").classList.toggle("hidden", m !== "in"); $("outboundCtl").classList.toggle("hidden", m !== "out");
+}
+
+for (const f of ["calendar", "crm"]) {
+  $("fault-" + f).onchange = (e) => api("POST", "/api/faults", {name: f, on: e.target.checked}).then(refresh);
+}
+
+// ---------------- dashboard ----------------
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); tab = b.dataset.tab; render(true);
+});
+
+const table = (heads, rows, empty) => rows.length
+  ? `<table><tr>${heads.map(h => `<th>${h}</th>`).join("")}</tr>${rows.join("")}</table>`
+  : `<div class="empty">${empty}</div>`;
+
+function render(force) {
+  if (!data) return;
+  const v = $("view");
+  if (tab === "profile") { if (force) renderProfile(); return; }
+  if (v.contains(document.activeElement) && !force) return; // don't clobber a form being typed in
+  if (tab === "calls") {
+    v.innerHTML = table(["When", "Who", "Summary", "Outcome"], data.calls.map(c => `<tr>
+      <td>${when(c.started_at)}<div class="tr">${esc(c.direction)}</div></td>
+      <td>${esc(c.lead_name || c.phone)}</td>
+      <td>${esc(c.summary || "—")}
+        <div class="tr">${c.events.filter(e => e.type !== "tool").map(e => esc(e.type)).join(" · ")}</div>
+        <details><summary>Transcript &amp; events</summary><div class="tr">
+          ${c.transcript.map(t => `<b>${esc(t.role)}:</b> ${esc(t.text)}${t.interrupted_after !== undefined ? ` <i>(interrupted; heard "${esc(t.interrupted_after)}")</i>` : ""}`).join("<br>")}
+          <br><br>${c.events.map(e => `<code>${esc(JSON.stringify(e))}</code>`).join("<br>")}</div></details></td>
+      <td>${pill(c.outcome)} ${pill(c.sentiment)}</td></tr>`), "No calls yet - start one on the left.");
+  } else if (tab === "leads") {
+    v.innerHTML = `<form class="inline" id="leadForm">
+        <input name="name" placeholder="Name" required><input name="phone" placeholder="+1555…" required>
+        <select name="consent_status"><option value="express_written">express_written</option>
+          <option value="existing_patient_reminders">existing_patient_reminders</option><option value="none">none</option></select>
+        <input name="timezone" placeholder="Lead timezone (optional)">
+        <button class="primary">Add lead</button></form>` +
+      table(["Lead", "Consent", "Status", "Qualification", "Attempts"], data.leads.map(l => `<tr>
+        <td><b>${esc(l.name || "—")}</b><div class="tr">${esc(l.phone)} ${esc(l.email || "")}</div>
+          <div class="tr">${Object.entries(l.details).map(([k, x]) => `${esc(k)}: ${esc(x)}`).join(" · ")}</div></td>
+        <td>${pill(l.consent_status, l.consent_status === "none" ? "no" : "yes")}<div class="tr">${esc(l.timezone || "")}</div></td>
+        <td>${pill(l.status)}</td>
+        <td>${l.qualification ? pill(l.qualification.qualified ? "qualified" : "not_qualified") + `<div class="tr">${Object.entries(l.qualification.answers).map(([k, x]) => `${esc(k)}=${esc(x)}`).join(", ")}${l.qualification.failed.length ? "<br>failed: " + l.qualification.failed.map(esc).join(", ") : ""}</div>` : ""}</td>
+        <td>${l.attempts}<div class="tr">${l.next_attempt_at ? "retry after " + when(l.next_attempt_at) : ""}</div></td></tr>`), "No leads yet.");
+    $("leadForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const f = Object.fromEntries(new FormData(e.target));
+      try { await api("POST", "/api/leads", {...f, profile_id: pid()}); refresh(true); } catch (err) { alert(err.message); }
+    };
+  } else if (tab === "bookings") {
+    v.innerHTML = table(["When", "Who", "Type", "Provider"], data.bookings.map(b => `<tr>
+      <td>${when(b.start_at)}</td><td>${esc(b.lead_name || b.lead_phone || "—")}</td><td>${esc(b.appointment_type)}</td>
+      <td>${esc(b.provider)} ${pill(b.status)}</td></tr>`), "No bookings yet.");
+  } else if (tab === "tasks") {
+    v.innerHTML = table(["Task", "For", "Priority"], data.tasks.map(t => `<tr>
+      <td><b>${esc(t.title)}</b><div class="tr">${esc(t.details || "")}</div></td>
+      <td>${esc(t.lead_name || t.lead_phone || "—")}</td><td>${pill(t.priority, t.priority === "high" ? "failed" : "")}</td></tr>`), "No tasks.");
+  } else if (tab === "crm") {
+    v.innerHTML = `<h2>Outbox (sent to the profile's webhook, retried with backoff)</h2>` +
+      table(["Event", "Status", "Attempts", ""], data.outbox.map(o => `<tr>
+        <td><b>${esc(o.event_type)}</b><div class="tr">${when(o.created_at)}</div>
+          <details><summary>Payload</summary><pre class="tr">${esc(JSON.stringify(o.payload, null, 2))}</pre></details></td>
+        <td>${pill(o.status)}<div class="tr">${esc(o.last_error || "")}</div></td><td>${o.attempts}</td>
+        <td>${o.status !== "sent" ? `<button class="small" onclick="retry(${o.id})">Retry now</button>` : ""}</td></tr>`), "No events yet.") +
+      `<h2 style="margin-top:18px">Received by the built-in mock CRM</h2>` +
+      table(["Received", "Event", "Signature"], data.crm_inbox.map(i => `<tr><td>${when(i.received_at)}</td>
+        <td>${esc(i.event_type)}</td><td>${pill(i.signature_valid ? "valid" : "invalid", i.signature_valid ? "yes" : "no")}</td></tr>`),
+        "Nothing received. (Profiles pointing at another webhook URL deliver there instead.)");
+  } else if (tab === "compliance") {
+    v.innerHTML = `<form class="inline" id="dncForm"><input name="phone" placeholder="+1555…" required>
+        <select name="profile_id"><option value="*">All businesses</option><option value="${esc(pid())}">This business only</option></select>
+        <input name="reason" placeholder="Reason" value="manual">
+        <button class="primary">Add to do-not-call</button></form>` +
+      table(["Phone", "Scope", "Reason / source", ""], data.dnc.map(d => `<tr><td>${esc(d.phone)}</td><td>${esc(d.profile_id)}</td>
+        <td>${esc(d.reason)}<div class="tr">${esc(d.source)} · ${when(d.created_at)}</div></td>
+        <td><button class="small" onclick='unDnc(${JSON.stringify(d.phone)}, ${JSON.stringify(d.profile_id)})'>Remove</button></td></tr>`), "Do-not-call list is empty.") +
+      `<h2 style="margin-top:18px">Dial log (every outbound decision)</h2>` +
+      table(["When", "Phone", "Decision"], data.dial_log.map(d => `<tr><td>${when(d.at)}</td><td>${esc(d.phone)}<div class="tr">${esc(d.mode)}</div></td>
+        <td>${d.allowed ? pill("allowed", "yes") : pill("blocked") + `<div class="tr">${d.reasons.map(esc).join("<br>")}</div>`}</td></tr>`), "No dials yet.");
+    $("dncForm").onsubmit = async (e) => {
+      e.preventDefault();
+      await api("POST", "/api/dnc", Object.fromEntries(new FormData(e.target))); refresh(true);
+    };
+  }
+}
+
+window.retry = async (id) => { await api("POST", `/api/outbox/${id}/retry`); setTimeout(() => refresh(true), 800); };
+window.unDnc = async (phone, profile_id) => { await api("DELETE", "/api/dnc", {phone, profile_id}); refresh(true); };
+
+function renderProfile() {
+  const p = profiles.find(x => x.id === pid());
+  $("view").innerHTML = `<p class="tr">Everything business-specific lives in <code>profiles/${esc(p.id)}.json</code>.
+    Edits are validated before saving; secrets are referenced by env-var name only.</p>
+    <textarea id="profileJson" spellcheck="false">${esc(JSON.stringify(p, null, 2))}</textarea>
+    <div class="row" style="margin-top:8px"><button class="primary" id="saveProfile">Save profile</button><span id="saveMsg" class="tr"></span></div>`;
+  $("saveProfile").onclick = async () => {
+    try {
+      const body = JSON.parse($("profileJson").value);
+      const saved = await api("PUT", `/api/profiles/${p.id}`, body);
+      profiles = profiles.map(x => x.id === saved.id ? saved : x);
+      $("saveMsg").textContent = "Saved. New calls use it immediately.";
+    } catch (e) { $("saveMsg").textContent = "Not saved: " + e.message; }
+  };
+}
+
+async function refresh(force) {
+  try {
+    data = await api("GET", `/api/dashboard?profile_id=${encodeURIComponent(pid())}`);
+    $("fault-calendar").checked = data.faults.includes("calendar");
+    $("fault-crm").checked = data.faults.includes("crm");
+    const sel = $("lead").value;
+    $("lead").innerHTML = data.leads.map(l => `<option value="${l.id}">${esc(l.name || l.phone)} · ${esc(l.phone)} · ${esc(l.consent_status)} · ${esc(l.status)}</option>`).join("")
+      || `<option value="">No leads - add some in the Leads tab</option>`;
+    if (sel) $("lead").value = sel;
+    render(force);
+  } catch (e) { $("status").textContent = e.message; }
+}
+
+async function init() {
+  try {
+    profiles = await api("GET", "/api/profiles");
+    $("profile").innerHTML = profiles.map(p => `<option value="${esc(p.id)}">${esc(p.company_name)}</option>`).join("");
+    $("profile").onchange = () => { refresh(true); };
+    refresh(true);
+  } catch (e) { $("status").textContent = "Cannot load: " + e.message; }
+}
+init(); setInterval(() => refresh(false), 4000);
+</script>
+</body>
+</html>
