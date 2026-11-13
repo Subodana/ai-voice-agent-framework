@@ -67,6 +67,11 @@ class OutboundConfig(BaseModel):
     allowed_consent: list[str] = ["express_written"]
     calling_days: list[str] = ["mon", "tue", "wed", "thu", "fri"]
     calling_window: tuple[str, str] = ("09:00", "20:00")  # in the lead's local time
+    # Per-day windows, e.g. Australia: weekdays 09:00-20:00, Saturday 09:00-17:00, no Sunday.
+    # When set, this replaces calling_days/calling_window.
+    calling_hours: dict[str, list[str]] = {}
+    # Dates (YYYY-MM-DD, lead's local date) with no calls at all, e.g. national public holidays.
+    no_call_dates: list[str] = []
     max_attempts: int = 3
     retry_after_minutes: list[int] = [60, 240, 1440]
     caller_id: str = ""  # Twilio number for this client; falls back to TWILIO_FROM_NUMBER
@@ -81,6 +86,7 @@ class Profile(BaseModel):
     phone_numbers: list[str] = []  # inbound numbers routed to this profile
     greeting: str
     persona: str = ""  # extra tone/style instructions
+    locale: str = "en-US"  # speech recognition / voice accent, e.g. en-AU
     inbound_goal: str
     # Holiday closures / staffed overflow: force the business open or closed regardless of hours.
     hours_override: Literal["auto", "open", "closed"] = "auto"
@@ -90,6 +96,8 @@ class Profile(BaseModel):
     faq: dict[str, str]
     lead_fields: list[str] = ["name", "email", "reason"]
     escalation_triggers: list[str] = []
+    # Common objections and how to respond, e.g. {"Price": "Don't quote fees; ..."}
+    objection_handling: dict[str, str] = {}
     emergency_instructions: str = ""
     transfer_targets: dict[str, TransferTarget]
     qualification: Qualification = Qualification()

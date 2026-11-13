@@ -85,6 +85,7 @@ def build_system_prompt(p: Profile) -> str:
                           for q in p.qualification.questions) or "- none"
     targets = "\n".join(f"- {k}: {t.name}" for k, t in p.transfer_targets.items())
     triggers = "\n".join(f"- {t}" for t in p.escalation_triggers) or "- none"
+    objections = "\n".join(f"- {k}: {v}" for k, v in p.objection_handling.items()) or "- none configured"
     return f"""You are {p.agent_name}, an AI voice assistant for {p.company_name} ({p.industry}). You are on a live phone call; everything you write is spoken aloud.
 
 INBOUND calls - goal: {p.inbound_goal}
@@ -117,6 +118,8 @@ Services:
 {services}
 FAQ:
 {faq}
+Handling hesitation or objections (acknowledge first, never pressure, accept a no):
+{objections}
 Transfer targets:
 {targets}
 """

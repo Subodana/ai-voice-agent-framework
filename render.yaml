@@ -1,0 +1,34 @@
+# Render Blueprint: one free web service. Render asks for the values marked sync: false when you deploy.
+# Free instances sleep after ~15 idle minutes (first request then takes ~1 minute) and their disk is
+# temporary, so demo data is re-seeded on every start.
+services:
+  - type: web
+    name: ai-voice-agent-demo
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m scripts.seed_demo && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: PORT
+        value: "10000"
+      - key: SELF_URL
+        value: http://127.0.0.1:10000
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: CLAUDE_MODEL
+        value: claude-opus-5-5
+      - key: CLAUDE_EFFORT
+        value: low
+      - key: DEFAULT_PROFILE
+        value: omega-education
+      - key: DENTAL_WEBHOOK_SECRET
+        generateValue: true
+      - key: SOLAR_WEBHOOK_SECRET
+        generateValue: true
+      - key: OMEGA_WEBHOOK_SECRET
+        generateValue: true

@@ -50,6 +50,15 @@ If you run on another port, set `SELF_URL` to match. The built-in mock CRM webho
 
 Run the automated acceptance tests (no API key or network needed): `pytest -v`
 
+## Example profiles
+
+- `bright-smile-dental` and `summit-solar` are fictional businesses.
+- `omega-education` is a demo for a prospective client. It was built only from that business's public listing and is not affiliated with or endorsed by it. Facts that couldn't be verified (fees, address, tutor checks) are answered as "the team will confirm". It also shows Australian calling rules: per-day calling hours (weekdays 9am–8pm, Saturday 9am–5pm, no Sunday calls) and national public holidays as no-call dates.
+
+## Hosted demo (Render, free)
+
+[render.yaml](render.yaml) deploys the console as one free web service: Render dashboard → **New → Blueprint** → pick this repo. Render then asks for `ANTHROPIC_API_KEY` and `ADMIN_TOKEN` (the access code visitors type into the console). Set a monthly spend limit on the Anthropic key, because every conversation uses it.
+
 ## Documentation
 
 - [docs/SETUP.md](docs/SETUP.md): install, credentials, Twilio, Cal.com, connecting a real CRM, deployment

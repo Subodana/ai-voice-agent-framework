@@ -68,7 +68,7 @@
   <label>Business <select id="profile"></select></label>
   <label><input type="checkbox" id="fault-calendar"> Simulate calendar outage</label>
   <label><input type="checkbox" id="fault-crm"> Simulate CRM outage</label>
-  <label>Admin token <input id="token" type="password" size="10" placeholder="if set"></label>
+  <label>Access code <input id="token" type="password" size="10" placeholder="if set"></label>
 </header>
 <main>
   <section class="panel">
@@ -121,6 +121,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&l
 const pill = (v, cls) => v === null || v === undefined || v === "" ? "" : `<span class="pill ${esc(cls ?? v)}">${esc(v)}</span>`;
 const when = (iso) => iso ? new Date(iso).toLocaleString([], {dateStyle: "short", timeStyle: "short"}) : "";
 const pid = () => $("profile").value;
+const locale = () => (profiles.find(p => p.id === pid()) || {}).locale || "en-US";
 const headers = () => ({"Content-Type": "application/json", "X-Admin-Token": $("token").value});
 
 async function api(method, url, body) {
@@ -146,7 +147,9 @@ function speak(text) {
     if (!$("voiceOn").checked || !window.speechSynthesis) return res();
     const u = new SpeechSynthesisUtterance(text);
     speaking = {text, spokenUpTo: 0};
-    u.rate = 1.05;
+    u.lang = locale(); u.rate = 1.05;
+    const voice = speechSynthesis.getVoices().find(v => v.lang.replace("_", "-") === u.lang);
+    if (voice) u.voice = voice;
     u.onboundary = (e) => { if (speaking) speaking.spokenUpTo = e.charIndex; };
     u.onend = u.onerror = () => { speaking = null; res(); };
     speechSynthesis.cancel(); speechSynthesis.speak(u);
@@ -251,7 +254,7 @@ if (SR) {
   const rec = new SR(); rec.lang = "en-US"; rec.interimResults = false;
   rec.onresult = (e) => send(e.results[0][0].transcript);
   rec.onend = () => $("micBtn").classList.remove("live");
-  $("micBtn").onclick = () => { $("micBtn").classList.add("live"); rec.start(); };
+  $("micBtn").onclick = () => { rec.lang = locale(); $("micBtn").classList.add("live"); rec.start(); };
 } else {
   $("micBtn").title = "Speech recognition not supported in this browser - type instead";
   $("micBtn").onclick = () => $("text").focus();

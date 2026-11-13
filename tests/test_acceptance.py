@@ -328,3 +328,20 @@ def test_no_secrets_in_profiles(env):
     for f in env.profiles_dir.glob("*.json"):
         raw = f.read_text().lower()
         assert "sk-ant" not in raw and "cal_live" not in raw and "change-me" not in raw
+
+
+def test_australian_calling_hours_and_public_holidays(env):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from app.compliance import check_eligibility
+    omega = env.ctx.profiles.get("omega-education")
+    lead = add_lead(env, "+61491570199", profile="omega-education", tz="Australia/Sydney")
+    syd = ZoneInfo("Australia/Sydney")
+    at = lambda *dt: check_eligibility(env.ctx.store, omega, lead, now=datetime(*dt, tzinfo=syd))
+    assert at(2026, 11, 16, 19, 30) == []                                  # Monday 7:30pm: allowed
+    assert at(2026, 11, 14, 10, 0) == []                                   # Saturday 10am: allowed
+    assert any("calling window" in r for r in at(2026, 11, 14, 17, 30))    # Saturday after 5pm
+    assert any("calling window" in r for r in at(2026, 11, 15, 11, 0))     # Sunday: never
+    assert any("no-call date" in r for r in at(2026, 12, 25, 11, 0))       # Christmas Day
+    assert "Omega Education" in build_system_prompt(omega) and "guarantee" in build_system_prompt(omega)

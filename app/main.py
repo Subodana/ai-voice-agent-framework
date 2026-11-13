@@ -153,7 +153,8 @@ def create_app(settings: Settings = default_settings, anthropic_client=None, htt
 
     @app.get("/api/profiles", dependencies=guarded)
     def list_profiles():
-        return [p.model_dump() for p in profiles.profiles.values()]
+        ordered = sorted(profiles.profiles.values(), key=lambda p: p.id != settings.default_profile)
+        return [p.model_dump() for p in ordered]  # default profile first, so the console opens on it
 
     @app.put("/api/profiles/{profile_id}", dependencies=guarded)
     def save_profile(profile_id: str, body: dict):

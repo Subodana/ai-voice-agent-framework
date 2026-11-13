@@ -47,10 +47,17 @@ def check_eligibility(store: Store, profile: Profile, lead: dict, mode: str = "s
     if lead.get("next_attempt_at") and datetime.fromisoformat(lead["next_attempt_at"]) > now:
         reasons.append(f"next retry not due until {lead['next_attempt_at']}")
     local = now.astimezone(ZoneInfo(lead.get("timezone") or profile.timezone))
-    start, end = (time.fromisoformat(t) for t in out.calling_window)
-    if DAYS[local.weekday()] not in out.calling_days or not (start <= local.time() < end):
-        reasons.append(f"outside calling window for the lead's local time ({local:%a %H:%M}; "
-                       f"allowed {'/'.join(out.calling_days)} {out.calling_window[0]}-{out.calling_window[1]})")
+    day = DAYS[local.weekday()]
+    if out.calling_hours:
+        span = out.calling_hours.get(day)
+        allowed = ", ".join(f"{d} {s[0]}-{s[1]}" for d, s in out.calling_hours.items())
+    else:
+        span = list(out.calling_window) if day in out.calling_days else None
+        allowed = f"{'/'.join(out.calling_days)} {out.calling_window[0]}-{out.calling_window[1]}"
+    if local.date().isoformat() in out.no_call_dates:
+        reasons.append(f"no-call date in the lead's local time ({local:%Y-%m-%d}, e.g. a public holiday)")
+    elif not span or not (time.fromisoformat(span[0]) <= local.time() < time.fromisoformat(span[1])):
+        reasons.append(f"outside calling window for the lead's local time ({local:%a %H:%M}; allowed {allowed})")
 
     if mode == "twilio":
         approved = {normalize_phone(n) for n in (test_numbers or [])}

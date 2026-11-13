@@ -33,6 +33,12 @@ def main():
         ("summit-solar", "+15550102240", "Jordan Lee", "express_written", tz, "web form 2026-10-18"),
         ("summit-solar", "+15550102250", "Casey Night", "express_written", night, "web form 2026-10-19"),
         ("bright-smile-dental", "+15550101234", "Priya Patel", "existing_patient_reminders", tz, "patient intake form"),
+        # Omega Education leads use real Sydney time, so Australian calling hours apply as they would live.
+        # Numbers are from ACMA's reserved range for fiction (0491 570 xxx).
+        ("omega-education", "+61491570110", "Anita Sharma", "express_written", "Australia/Sydney",
+         "website enquiry form, consent checkbox"),
+        ("omega-education", "+61491570111", "Daniel Wong", "none", "Australia/Sydney", ""),
+        ("omega-education", "+61491570112", "Grace Nguyen", "express_written", "Australia/Sydney", "website enquiry form"),
     ]
     for profile, phone, name, consent, zone, source in demo:
         store._exec("DELETE FROM leads WHERE profile_id = ? AND phone = ?", (profile, phone))
@@ -40,7 +46,9 @@ def main():
         store.upsert_lead(profile, phone, name=name, consent_status=consent, consent_source=source or None,
                           consent_at=now_iso() if consent != "none" else None, timezone=zone, status="new", attempts=0)
     store.add_dnc("+15550102240", "*", reason="asked not to be called (national registry)", source="seed")
-    print(f"Seeded {len(demo)} demo leads (eligible ones in {tz}; Casey in {night}). Jordan Lee is on the DNC list.")
+    store.add_dnc("+61491570112", "*", reason="on the Do Not Call Register (wash result)", source="seed")
+    print(f"Seeded {len(demo)} demo leads (eligible ones in {tz}; Casey in {night}; Omega leads in Sydney time). "
+          "Jordan Lee and Grace Nguyen are on the DNC list.")
 
 
 if __name__ == "__main__":
