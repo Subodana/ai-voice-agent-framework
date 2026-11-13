@@ -385,15 +385,36 @@ async function refresh(force) {
   } catch (e) { $("status").textContent = e.message; }
 }
 
+// A shared link can carry the access code (?code=...); it's stored, then removed from the address bar.
+const linkCode = new URLSearchParams(location.search).get("code");
+if (linkCode) {
+  $("token").value = linkCode;
+  try { localStorage.setItem("va-token", linkCode); } catch (e) {}
+  history.replaceState(null, "", location.pathname);
+}
+
+function samplePhone() {
+  $("phone").value = locale() === "en-AU" ? "+61491570150" : "+15550101111";
+}
+
 async function init() {
   try {
     profiles = await api("GET", "/api/profiles");
+    $("token").style.outline = "";
     $("profile").innerHTML = profiles.map(p => `<option value="${esc(p.id)}">${esc(p.company_name)}</option>`).join("");
-    $("profile").onchange = () => { refresh(true); };
+    $("profile").onchange = () => { samplePhone(); refresh(true); };
+    samplePhone();
+    $("status").textContent = "Ready. Click \"Call the business\", then speak with the mic or type.";
     refresh(true);
-  } catch (e) { $("status").textContent = "Cannot load: " + e.message; }
+  } catch (e) {
+    profiles = [];
+    const locked = /token required/i.test(e.message);
+    $("status").textContent = locked ? "Enter the access code (top right) and press Enter to start." : "Cannot load: " + e.message;
+    $("view").innerHTML = `<div class="empty">${locked ? "🔒 Enter the access code at the top right to open the demo." : esc(e.message)}</div>`;
+    if (locked) { $("token").style.outline = "2px solid var(--accent)"; $("token").focus(); }
+  }
 }
-init(); setInterval(() => refresh(false), 4000);
+init(); setInterval(() => { if (profiles.length) refresh(false); }, 4000);
 </script>
 </body>
 </html>
