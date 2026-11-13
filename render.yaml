@@ -1,4 +1,4 @@
-# Render Blueprint: one free web service. Render asks for the values marked sync: false when you deploy.
+# Render Blueprint (Render's default PORT is 10000, which SELF_URL below relies on): one free web service. Render asks for the values marked sync: false when you deploy.
 # Free instances sleep after ~15 idle minutes (first request then takes ~1 minute) and their disk is
 # temporary, so demo data is re-seeded on every start.
 services:
@@ -8,12 +8,9 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python -m scripts.seed_demo && uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.10
-      - key: PORT
-        value: "10000"
       - key: SELF_URL
         value: http://127.0.0.1:10000
       - key: ANTHROPIC_API_KEY
