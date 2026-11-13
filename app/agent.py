@@ -62,8 +62,9 @@ def build_tools(profile: Profile) -> list[dict]:
          "description": "Transfer the call to a person: when the caller asks for one, on an escalation trigger, "
                         "after repeated misunderstanding, or for anything you cannot handle.",
          "input_schema": {"type": "object", "properties": {
-             "target": {"type": "string", "enum": targets}, "reason": {"type": "string"}},
-             "required": ["target", "reason"]}},
+             "target": {"type": "string", "enum": targets}, "reason": {"type": "string"},
+             "say": {"type": "string", "description": "One sentence to say to the caller before transferring"}},
+             "required": ["target", "reason", "say"]}},
         {"name": "record_opt_out",
          "description": "The caller does not want further calls. Adds them to the do-not-call list immediately.",
          "input_schema": {"type": "object", "properties": {"reason": {"type": "string"}}}},
@@ -73,8 +74,10 @@ def build_tools(profile: Profile) -> list[dict]:
              "title": {"type": "string"}, "details": {"type": "string"},
              "priority": {"type": "string", "enum": ["low", "medium", "high"]}}, "required": ["title"]}},
         {"name": "end_call",
-         "description": "Hang up after you have said goodbye.",
-         "input_schema": {"type": "object", "properties": {"reason": {"type": "string"}}}},
+         "description": "End the call. Put your goodbye (with a one-sentence recap of the next step) in `say`; "
+                        "it is spoken before hanging up.",
+         "input_schema": {"type": "object", "properties": {
+             "say": {"type": "string"}, "reason": {"type": "string"}}, "required": ["say"]}},
     ]
 
 
@@ -102,12 +105,12 @@ Always:
 - Read back names, emails and appointment times to confirm them. Speech recognition makes mistakes: if an answer doesn't make sense, politely ask again or ask them to spell it.
 - If you fail to understand the caller twice in a row, offer to transfer them or take a message.
 - If a tool returns an error, follow its instruction; never pretend an action succeeded.
-- If the caller asks not to be called or contacted again, call record_opt_out, confirm they won't be called again, say goodbye and call end_call.
+- If the caller asks not to be called or contacted again, call record_opt_out, then end_call with a 'say' that confirms they won't be called again.
 - If the caller interrupts you, stop and respond to what they just said; don't repeat everything you were saying.
 - Transfer with transfer_to_human for: the caller asking for a person, and these triggers:
 {triggers}
 - {p.emergency_instructions or "If anyone is in danger, tell them to hang up and call emergency services."}
-- Before ending, summarise the next step in one sentence, say goodbye, then call end_call.
+- To finish, call end_call with your goodbye in 'say' (one-sentence recap of the next step, then goodbye). When transferring, put the sentence for the caller in transfer_to_human's 'say'.
 {p.persona}
 
 Company facts
@@ -138,6 +141,9 @@ class AgentReply:
     action: Literal["continue", "transfer", "hangup"] = "continue"
     transfer_target: str | None = None
     transfer_phone: str | None = None
+    # Sentences carried by end_call/transfer_to_human. Text the model writes in the same message as a
+    # tool call can come back hidden, so the last words before a hang-up or transfer travel in the tool input.
+    tool_speech: list = field(default_factory=list)
 
 
 @dataclass
@@ -289,6 +295,7 @@ class VoiceAgent:
             if reply.action != "continue":
                 break
 
+        spoken += [s for s in reply.tool_speech if s not in spoken]
         reply.text = " ".join(spoken).strip() or {
             "transfer": "Let me put you through now.", "hangup": "Thanks for your time. Goodbye."
         }.get(reply.action, "Sorry, could you say that again?")
@@ -400,6 +407,8 @@ class VoiceAgent:
                 return {"status": "closed", "instruction": f"{target.name} is closed right now. Say so, tell the "
                         "caller a callback has been arranged for when they open, and confirm their number."}
             reply.action, reply.transfer_target, reply.transfer_phone = "transfer", args["target"], target.phone
+            if args.get("say"):
+                reply.tool_speech.append(args["say"].strip())
             session.transferred_to = args["target"]
             session.event("transfer", target=args["target"], reason=args.get("reason"))
             return {"status": "transferring", "to": target.name,
@@ -416,6 +425,8 @@ class VoiceAgent:
 
         if name == "end_call":
             reply.action = "hangup"
+            if args.get("say"):
+                reply.tool_speech.append(args["say"].strip())
             return {"status": "ending call"}
         raise ValueError(f"Unknown tool {name}")
 
